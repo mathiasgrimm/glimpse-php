@@ -1,0 +1,62 @@
+{
+    "name": "glimpseimg/glimpse-php",
+    "description": "PHP SDK for glimpseimg.com: convert, optimize, resize, thumbnail, inspect, and analyze images.",
+    "keywords": ["glimpse", "image", "sdk", "api", "convert", "optimize", "resize", "thumbnail", "jpg", "jpeg", "gif", "png", "webp", "avif"],
+    "type": "library",
+    "license": "MIT",
+    "support": {
+        "issues": "https://github.com/mathiasgrimm/glimpse-php/issues",
+        "source": "https://github.com/mathiasgrimm/glimpse-php"
+    },
+    "authors": [
+        {
+            "name": "Mathias Grimm",
+            "email": "mathiasgrimm@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/http": "^10.0|^11.0|^12.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.29",
+        "pestphp/pest": "^3.8.4|^4.1.2",
+        "phpstan/phpstan": "^2.2"
+    },
+    "suggest": {
+        "ext-imagick": "Far tighter analyze size estimates, plus AVIF and CMYK support (SampleProbe)",
+        "ext-gd": "Far tighter analyze size estimates when Imagick is unavailable (SampleProbe)"
+    },
+    "autoload": {
+        "psr-4": {
+            "GlimpseImg\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "GlimpseImg\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "lint": "pint --parallel",
+        "lint:check": "pint --parallel --test",
+        "types:check": "phpstan analyse",
+        "test": [
+            "@lint:check",
+            "@types:check",
+            "@php vendor/bin/pest"
+        ],
+        "ci:check": [
+            "@test"
+        ]
+    },
+    "config": {
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

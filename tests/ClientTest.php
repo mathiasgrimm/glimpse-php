@@ -1,0 +1,261 @@
+<?php
+
+use GlimpseImg\ApiException;
+use GlimpseImg\AuthException;
+use GlimpseImg\Client;
+use GlimpseImg\ImageFormat;
+use GlimpseImg\Tests\Fixtures\Images;
+use GlimpseImg\ValidationException;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
+
+function fakeHttp(array $responses = []): Factory
+{
+    $http = new Factory;
+
+    $responses === [] ? $http->fake() : $http->fake($responses);
+
+    return $http;
+}
+
+function client(Factory $http, Closure|string|null $token = 'test-token', string $baseUrl = Client::DEFAULT_BASE_URL): Client
+{
+    return new Client($http, $token, $baseUrl);
+}
+
+test('convert posts the base64 envelope and returns a decoded ImageResult', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response(fakeTransformResponse())]);
+
+    $result = client($http)->convert(Images::png(), ImageFormat::Jpg);
+
+    expect($result->bytes)->toBe(Images::jpg())
+        ->and($result->format)->toBe(ImageFormat::Jpg->value)
+        ->and($result->mimeType)->toBe('image/jpeg')
+        ->and($result->width)->toBe(1280)
+        ->and($result->height)->toBe(720);
+
+    $http->assertSent(function (Request $request) {
+        return $request->url() === 'https://glimpseimg.com/api/v1/convert'
+            && $request->hasHeader('Authorization', 'Bearer test-token')
+            && $request['input']['type'] === 'BASE64'
+            && $request['input']['data'] === Images::PNG_BASE64
+            && $request['format'] === ImageFormat::Jpg->value;
+    });
+});
+
+test('convert sends optimize and quality when given', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->convert(Images::png(), ImageFormat::Jpg, optimize: true, quality: 60);
+
+    $http->assertSent(fn (Request $request) => $request['optimize'] === true
+        && $request['quality'] === 60);
+});
+
+test('convert omits optimize and quality from the payload by default', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->convert(Images::png(), ImageFormat::Jpg);
+
+    $http->assertSent(fn (Request $request) => ! array_key_exists('optimize', $request->data())
+        && ! array_key_exists('quality', $request->data()));
+});
+
+test('resize sends optimize and quality when given', function () {
+    $http = fakeHttp(['*/v1/resize' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->resize(Images::png(), width: 800, optimize: true, quality: 60);
+
+    $http->assertSent(fn (Request $request) => $request['width'] === 800
+        && $request['optimize'] === true
+        && $request['quality'] === 60);
+});
+
+test('resize omits optimize and quality from the payload by default', function () {
+    $http = fakeHttp(['*/v1/resize' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->resize(Images::png(), width: 800);
+
+    $http->assertSent(fn (Request $request) => ! array_key_exists('optimize', $request->data())
+        && ! array_key_exists('quality', $request->data()));
+});
+
+test('optimize omits quality from the payload when not given', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->optimize(Images::png());
+
+    $http->assertSent(fn (Request $request) => ! array_key_exists('quality', $request->data()));
+});
+
+test('thumbnail sends width, height, and quality when given', function () {
+    $http = fakeHttp(['*/v1/thumbnail' => Factory::response(fakeTransformResponse())]);
+
+    client($http)->thumbnail(Images::png(), width: 100, height: 50, quality: 42);
+
+    $http->assertSent(fn (Request $request) => $request['width'] === 100
+        && $request['height'] === 50
+        && $request['quality'] === 42);
+});
+
+test('info returns the raw data object', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => ['format' => 'png', 'width' => 1, 'height' => 1]])]);
+
+    expect(client($http)->info(Images::png()))
+        ->toBe(['format' => 'png', 'width' => 1, 'height' => 1]);
+});
+
+test('usage fetches the summary with the configured token', function () {
+    $http = fakeHttp(['*/v1/usage' => Factory::response(['data' => [
+        'operations' => 68,
+        'bytes_saved' => 62111321,
+        'average_reduction' => 45,
+    ]])]);
+
+    $usage = client($http)->usage();
+
+    expect($usage['operations'])->toBe(68)
+        ->and($usage['bytes_saved'])->toBe(62111321);
+
+    $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.com/api/v1/usage'
+        && $request->method() === 'GET'
+        && $request->hasHeader('Authorization', 'Bearer test-token'));
+});
+
+test('user verifies an explicit token without touching the configured one', function () {
+    $http = fakeHttp(['*/user' => Factory::response(['name' => 'Mathias', 'email' => 'mathias@example.com'])]);
+
+    $user = client($http)->user('candidate-token');
+
+    expect($user['name'])->toBe('Mathias');
+
+    $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.com/api/user'
+        && $request->hasHeader('Authorization', 'Bearer candidate-token'));
+});
+
+test('a missing token fails before any HTTP request', function () {
+    $http = fakeHttp();
+
+    expect(fn () => client($http, token: null)->optimize(Images::png()))
+        ->toThrow(AuthException::class, 'Not authenticated.');
+
+    $http->assertNothingSent();
+});
+
+test('a token closure is resolved on every request', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(fakeTransformResponse())]);
+
+    $tokens = ['first-token', 'second-token'];
+    $client = client($http, token: function () use (&$tokens) {
+        return array_shift($tokens);
+    });
+
+    $client->optimize(Images::png());
+    $client->optimize(Images::png());
+
+    $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer first-token'));
+    $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer second-token'));
+});
+
+test('a token closure returning null fails at call time', function () {
+    $http = fakeHttp();
+
+    expect(fn () => client($http, token: fn () => null)->optimize(Images::png()))
+        ->toThrow(AuthException::class, 'Not authenticated.');
+
+    $http->assertNothingSent();
+});
+
+test('analyze posts metadata only, with no image payload', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(fakeAnalyzeResponse())]);
+
+    $estimates = client($http)->analyze(ImageFormat::Jpg, 2_500_000, 4032, 3024, 80);
+
+    expect($estimates)->toHaveCount(4)
+        ->and($estimates[0]['format'])->toBe('jpg')
+        ->and($estimates[3]['format'])->toBe('avif');
+
+    $http->assertSent(function (Request $request) {
+        return $request->url() === 'https://glimpseimg.com/api/v1/analyze'
+            && $request->hasHeader('Authorization', 'Bearer test-token')
+            && ! array_key_exists('input', $request->data())
+            && $request['format'] === ImageFormat::Jpg->value
+            && $request['size'] === 2_500_000
+            && $request['width'] === 4032
+            && $request['height'] === 3024
+            && $request['quality'] === 80;
+    });
+});
+
+test('analyze omits dimensions, quality, sample, and frames from the payload when null', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(fakeAnalyzeResponse())]);
+
+    client($http)->analyze(ImageFormat::Png, 1_000_000);
+
+    $http->assertSent(fn (Request $request) => ! array_key_exists('width', $request->data())
+        && ! array_key_exists('height', $request->data())
+        && ! array_key_exists('quality', $request->data())
+        && ! array_key_exists('sample_bpp', $request->data())
+        && ! array_key_exists('frames', $request->data()));
+});
+
+test('analyze sends the sample bpp when given', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(fakeAnalyzeResponse())]);
+
+    client($http)->analyze(ImageFormat::Jpg, 2_500_000, 4032, 3024, sampleBpp: 0.7066);
+
+    $http->assertSent(fn (Request $request) => $request['sample_bpp'] === 0.7066);
+});
+
+test('analyze sends the frame count when given', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(fakeAnalyzeResponse())]);
+
+    client($http)->analyze(ImageFormat::Gif, 24_000, 64, 64, frames: 20);
+
+    $http->assertSent(fn (Request $request) => $request['frames'] === 20);
+});
+
+test('a 401 response maps to AuthException', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(['message' => 'Unauthenticated.'], 401)]);
+
+    expect(fn () => client($http)->optimize(Images::png()))
+        ->toThrow(AuthException::class, 'Invalid or missing token.');
+});
+
+test('a 422 response maps to ValidationException carrying the errors map', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response([
+        'message' => 'The format field is invalid.',
+        'errors' => ['format' => ['The format field is invalid.']],
+    ], 422)]);
+
+    try {
+        client($http)->convert(Images::png(), ImageFormat::Png);
+        $this->fail('Expected a ValidationException.');
+    } catch (ValidationException $e) {
+        expect($e->getMessage())->toBe('The format field is invalid.')
+            ->and($e->errors)->toBe(['format' => ['The format field is invalid.']]);
+    }
+});
+
+test('other failures map to ApiException with the status code', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(['message' => 'Server Error'], 500)]);
+
+    expect(fn () => client($http)->optimize(Images::png()))
+        ->toThrow(ApiException::class, 'API error (500): Server Error');
+});
+
+test('a custom base url points requests at a different host', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => []])]);
+
+    client($http, baseUrl: 'https://glimpseimg.test/api')->info(Images::png());
+
+    $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.test/api/v1/info');
+});
+
+test('a trailing slash on the base url is normalized away', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => []])]);
+
+    client($http, baseUrl: 'https://glimpseimg.test/api/')->info(Images::png());
+
+    $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.test/api/v1/info');
+});
