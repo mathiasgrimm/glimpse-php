@@ -91,6 +91,14 @@ composer install
 composer test   # pint, phpstan, pest
 ```
 
+## Releasing
+
+```bash
+make release VERSION=vX.Y.Z
+```
+
+Runs the test suite, tags `VERSION`, pushes the tag, and creates the GitHub release. Packagist picks the new tag up through the GitHub webhook.
+
 ## License
 
 MIT
