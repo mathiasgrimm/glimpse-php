@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://packagist.org/packages/glimpseimg/glimpse-php"><img src="https://img.shields.io/packagist/v/glimpseimg/glimpse-php?style=flat-square&label=packagist" alt="Latest Version on Packagist"></a>
+  <a href="https://packagist.org/packages/mathiasgrimm/glimpse-php"><img src="https://img.shields.io/packagist/v/mathiasgrimm/glimpse-php?style=flat-square&label=packagist" alt="Latest Version on Packagist"></a>
   <a href="https://github.com/mathiasgrimm/glimpse-php/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mathiasgrimm/glimpse-php/ci.yml?branch=main&label=tests&style=flat-square" alt="Tests"></a>
-  <a href="https://packagist.org/packages/glimpseimg/glimpse-php"><img src="https://img.shields.io/packagist/dt/glimpseimg/glimpse-php?style=flat-square" alt="Total Downloads"></a>
-  <a href="https://packagist.org/packages/glimpseimg/glimpse-php"><img src="https://img.shields.io/packagist/dependency-v/glimpseimg/glimpse-php/php?style=flat-square&label=php" alt="PHP Version"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/glimpseimg/glimpse-php?style=flat-square" alt="License"></a>
+  <a href="https://packagist.org/packages/mathiasgrimm/glimpse-php"><img src="https://img.shields.io/packagist/dt/mathiasgrimm/glimpse-php?style=flat-square" alt="Total Downloads"></a>
+  <a href="https://packagist.org/packages/mathiasgrimm/glimpse-php"><img src="https://img.shields.io/packagist/dependency-v/mathiasgrimm/glimpse-php/php?style=flat-square&label=php" alt="PHP Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/mathiasgrimm/glimpse-php?style=flat-square" alt="License"></a>
 </p>
 
 ---
@@ -21,7 +21,7 @@
 Shipping images means wrangling ImageMagick, libvips, mozjpeg, cwebp and avifenc: compiled binaries that differ between your laptop, your teammate's laptop, and production. **glimpse-php replaces all of them with one method call.** The heavy lifting happens on the [Glimpse API](https://glimpseimg.com): stateless, nothing stored, your bytes never linger. You require a single package and go:
 
 ```bash
-composer require glimpseimg/glimpse-php
+composer require mathiasgrimm/glimpse-php
 ```
 
 ```php
@@ -51,7 +51,7 @@ That is the whole integration: no extensions to compile, no binaries to pin, no 
 ## Installation
 
 ```bash
-composer require glimpseimg/glimpse-php
+composer require mathiasgrimm/glimpse-php
 ```
 
 Requires PHP 8.2+ and works alongside Laravel 10, 11, or 12 (the SDK depends on `illuminate/http` but needs no framework).
