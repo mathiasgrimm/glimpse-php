@@ -42,7 +42,7 @@ That is the whole integration: no extensions to compile, no binaries to pin, no 
 - **Zero image binaries.** No ImageMagick, no libvips, no format-specific encoders to install, pin, or debug across machines. If it runs PHP 8.2, it runs glimpse.
 - **One method per job.** `convert()`, `optimize()`, `resize()`, `thumbnail()`, `analyze()`, `info()` and `usage()` are small, predictable methods that do one thing well.
 - **5 output formats.** JPG, PNG, WebP, GIF and AVIF, with AVIF producing the smallest files at equivalent visual quality.
-- **Typed results.** Every transform returns an immutable `ImageResult` with the bytes, format, MIME type, size and dimensions. No array-shape guessing.
+- **Typed results.** Every method returns an immutable object: transforms return `ImageResult`, `info()` returns `ImageInfo`, `analyze()` returns a list of `SizeEstimate`, and `usage()` returns `UsageSummary`. No array-shape guessing.
 - **Know before you convert.** `analyze()` predicts per-format savings from metadata and an optional local sample probe. The image itself is never uploaded.
 - **Framework-friendly, framework-free.** Built on `illuminate/http`, so `Http::fake()` just works in Laravel tests, but the SDK runs in any PHP application.
 - **Safe by default.** `resize()` never upscales; the optimizer never returns a file larger than its input.
@@ -89,6 +89,8 @@ A missing token throws `GlimpseImg\AuthException` at call time, before any HTTP 
 $glimpse->user();                    // the account behind the client's token
 $glimpse->user('candidate-token');   // verify a different token
 ```
+
+Both calls return a `GlimpseImg\User` with `id`, `name`, `email`, and `createdAt`.
 
 ## Usage
 
@@ -146,8 +148,19 @@ $glimpse->thumbnail($bytes, width: 150, quality: 50);
 
 ### Info
 
+Inspect an image without transforming it. Returns a typed `ImageInfo`:
+
 ```php
-$info = $glimpse->info($bytes); // format, dimensions, colorspace, frames, exif, ...
+$info = $glimpse->info($bytes);
+
+$info->format;        // "jpg"
+$info->mimeType;      // "image/jpeg"
+$info->width;         // px
+$info->height;        // px
+$info->colorspace;    // "SRGB"
+$info->frames;        // 1 for still images
+$info->hasAlpha;      // false
+$info->properties;    // raw embedded properties, including exif, as array<string, string>
 ```
 
 ### Analyze
@@ -157,12 +170,15 @@ Know before you convert: `analyze()` predicts the converted size for every forma
 ```php
 $estimates = $glimpse->analyze(ImageFormat::Png, size: 368_947, width: 3200, height: 840);
 
-// [
-//   ['format' => 'jpg',  'size' => 149402, 'saved' => 219545, 'saved_percent' => 59.5, 'quality' => 85],
-//   ['format' => 'png',  'size' => 165991, 'saved' => 202956, 'saved_percent' => 55.0, 'quality' => null],
-//   ['format' => 'webp', 'size' => 83046,  'saved' => 285901, 'saved_percent' => 77.5, 'quality' => 85],
-//   ['format' => 'avif', 'size' => 41472,  'saved' => 327475, 'saved_percent' => 88.7, 'quality' => 85],
-// ]
+// One SizeEstimate per target format:
+$estimates[0]->format;       // "jpg"
+$estimates[0]->size;         // 149402 (predicted bytes)
+$estimates[0]->saved;        // 219545 (negative when the format would be larger)
+$estimates[0]->savedPercent; // 59.5
+$estimates[0]->quality;      // 85 (null for lossless estimates)
+
+$estimates[3]->format;       // "avif"
+$estimates[3]->savedPercent; // 88.7
 ```
 
 Estimates are heuristics for picking a target format, not guarantees. They get far tighter when you feed `analyze()` a locally measured sample: `SampleProbe` (needs `ext-imagick` or `ext-gd`) trial-encodes a downscaled copy of the image to measure its actual complexity, and `FrameCounter` counts animation frames (which matters for animated GIF and AVIF):
@@ -187,8 +203,17 @@ $estimates = $glimpse->analyze(
 
 ### Usage summary
 
+Month-to-date usage for the token's team, returned as a typed `UsageSummary`:
+
 ```php
-$usage = $glimpse->usage(); // month-to-date operations, bytes saved, average reduction
+$usage = $glimpse->usage();
+
+$usage->operations;       // 68
+$usage->bytesSaved;       // 62111321
+$usage->averageReduction; // 45 (percent, per image)
+$usage->byOperation;      // ['convert' => 40, 'optimize' => 28]
+$usage->period->from;     // DateTimeImmutable, start of the calendar month
+$usage->period->to;       // DateTimeImmutable, end of the calendar month
 ```
 
 ## Errors
@@ -217,6 +242,32 @@ try {
 
 - Input images are capped at 15 MiB. Formats: `jpg`, `png`, `webp`, `gif`, `avif`.
 - Resize and thumbnail dimensions are capped at 10000 px.
+
+## Upgrading to v2.0
+
+In v1, `info()`, `analyze()`, `usage()`, and `user()` returned plain arrays. In v2 they return objects, like the transform methods already did:
+
+| Method | v1 returned | v2 returns |
+| --- | --- | --- |
+| `info()` | `array<string, mixed>` | `ImageInfo` |
+| `analyze()` | `list<array<string, mixed>>` | `list<SizeEstimate>` |
+| `usage()` | `array<string, mixed>` | `UsageSummary` |
+| `user()` | `array<string, mixed>` | `User` |
+
+To upgrade, change array access to property access. Keys become camelCase properties:
+
+```php
+$info['mime_type'];          // now: $info->mimeType
+$info['resolution']['x'];    // now: $info->resolution->x
+$estimate['saved_percent'];  // now: $estimate->savedPercent
+$usage['bytes_saved'];       // now: $usage->bytesSaved
+$user['email'];              // now: $user->email
+```
+
+Two more changes to watch for:
+
+- Dates are now `DateTimeImmutable` instances instead of ISO-8601 strings: `$usage->period->from`, `$usage->period->to`, and `$user->createdAt`.
+- The map-valued fields on `ImageInfo` stay plain arrays: `channelDepths`, `chromaticity`, `statistics`, and `properties`.
 
 ## Development
 

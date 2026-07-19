@@ -51,12 +51,9 @@ final class Client
         return ImageResult::fromResponse($this->post('/v1/thumbnail', ['width' => $width, 'height' => $height, 'quality' => $quality], $bytes));
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function info(string $bytes): array
+    public function info(string $bytes): ImageInfo
     {
-        return $this->post('/v1/info', [], $bytes);
+        return ImageInfo::fromResponse($this->post('/v1/info', [], $bytes));
     }
 
     /**
@@ -66,7 +63,7 @@ final class Client
      * optional frame count (see FrameCounter) makes the AVIF estimate
      * honest for animated sources: AVIF output keeps every frame.
      *
-     * @return list<array<string, mixed>>
+     * @return list<SizeEstimate>
      */
     public function analyze(ImageFormat $format, int $size, ?int $width = null, ?int $height = null, ?int $quality = null, ?float $sampleBpp = null, ?int $frames = null): array
     {
@@ -80,35 +77,33 @@ final class Client
             'frames' => $frames,
         ]);
 
-        return array_values(array_filter($estimates, 'is_array'));
+        return array_map(
+            SizeEstimate::fromResponse(...),
+            array_values(array_filter($estimates, 'is_array')),
+        );
     }
 
     /**
      * Month-to-date usage for the token's current team: operation counts,
      * bytes saved, and the average per-image size reduction, with the
      * calendar-month window echoed in `period`.
-     *
-     * @return array<string, mixed>
      */
-    public function usage(): array
+    public function usage(): UsageSummary
     {
         $response = $this->request($this->requireToken())->get('/v1/usage');
 
         $data = $this->guard($response)->json('data');
 
-        return is_array($data) ? $data : [];
+        return UsageSummary::fromResponse(is_array($data) ? $data : []);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function user(?string $token = null): array
+    public function user(?string $token = null): User
     {
         $response = $this->request($token ?? $this->requireToken())->get('/user');
 
         $user = $this->guard($response)->json();
 
-        return is_array($user) ? $user : [];
+        return User::fromResponse(is_array($user) ? $user : []);
     }
 
     /**

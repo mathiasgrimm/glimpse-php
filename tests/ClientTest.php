@@ -4,7 +4,11 @@ use GlimpseImg\ApiException;
 use GlimpseImg\AuthException;
 use GlimpseImg\Client;
 use GlimpseImg\ImageFormat;
+use GlimpseImg\ImageInfo;
+use GlimpseImg\SizeEstimate;
 use GlimpseImg\Tests\Fixtures\Images;
+use GlimpseImg\UsageSummary;
+use GlimpseImg\User;
 use GlimpseImg\ValidationException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
@@ -98,24 +102,81 @@ test('thumbnail sends width, height, and quality when given', function () {
         && $request['quality'] === 42);
 });
 
-test('info returns the raw data object', function () {
-    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => ['format' => 'png', 'width' => 1, 'height' => 1]])]);
+test('info returns a typed ImageInfo', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(fakeInfoResponse())]);
 
-    expect(client($http)->info(Images::png()))
-        ->toBe(['format' => 'png', 'width' => 1, 'height' => 1]);
+    $info = client($http)->info(Images::png());
+
+    expect($info)->toBeInstanceOf(ImageInfo::class)
+        ->and($info->format)->toBe('jpg')
+        ->and($info->mimeType)->toBe('image/jpeg')
+        ->and($info->width)->toBe(1280)
+        ->and($info->height)->toBe(720)
+        ->and($info->type)->toBe('TRUECOLOR')
+        ->and($info->colorspace)->toBe('SRGB')
+        ->and($info->depth)->toBe(8)
+        ->and($info->channelDepths)->toBe(['red' => 8, 'green' => 8, 'blue' => 8])
+        ->and($info->size)->toBe(812000)
+        ->and($info->resolution->x)->toBe(72.0)
+        ->and($info->resolution->y)->toBe(72.0)
+        ->and($info->units)->toBe('PIXELS_PER_INCH')
+        ->and($info->gamma)->toBe(0.4545)
+        ->and($info->interlace)->toBe('NONE')
+        ->and($info->compression)->toBe('JPEG')
+        ->and($info->compressionQuality)->toBe(92)
+        ->and($info->orientation)->toBe('TOP_LEFT')
+        ->and($info->renderingIntent)->toBe('PERCEPTUAL')
+        ->and($info->iterations)->toBe(0)
+        ->and($info->colors)->toBe(187028)
+        ->and($info->chromaticity['white'])->toBe(['x' => 0.3127, 'y' => 0.329])
+        ->and($info->backgroundColor)->toBe('srgb(255,255,255)')
+        ->and($info->borderColor)->toBe('srgb(223,223,223)')
+        ->and($info->frames)->toBe(1)
+        ->and($info->hasAlpha)->toBeFalse()
+        ->and($info->statistics['red']['mean'])->toBe(0.4823)
+        ->and($info->properties['exif:Make'])->toBe('Canon');
+});
+
+test('info preserves null for the nullable metadata fields', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(fakeInfoResponse([
+        'type' => null,
+        'colorspace' => null,
+        'units' => null,
+        'interlace' => null,
+        'compression' => null,
+        'orientation' => null,
+        'rendering_intent' => null,
+    ]))]);
+
+    $info = client($http)->info(Images::png());
+
+    expect($info->type)->toBeNull()
+        ->and($info->colorspace)->toBeNull()
+        ->and($info->units)->toBeNull()
+        ->and($info->interlace)->toBeNull()
+        ->and($info->compression)->toBeNull()
+        ->and($info->orientation)->toBeNull()
+        ->and($info->renderingIntent)->toBeNull();
 });
 
 test('usage fetches the summary with the configured token', function () {
     $http = fakeHttp(['*/v1/usage' => Factory::response(['data' => [
+        'period' => ['from' => '2026-07-01T00:00:00+00:00', 'to' => '2026-07-31T23:59:59+00:00'],
         'operations' => 68,
         'bytes_saved' => 62111321,
         'average_reduction' => 45,
+        'by_operation' => ['convert' => 40, 'optimize' => 28],
     ]])]);
 
     $usage = client($http)->usage();
 
-    expect($usage['operations'])->toBe(68)
-        ->and($usage['bytes_saved'])->toBe(62111321);
+    expect($usage)->toBeInstanceOf(UsageSummary::class)
+        ->and($usage->period->from->format(DATE_ATOM))->toBe('2026-07-01T00:00:00+00:00')
+        ->and($usage->period->to->format(DATE_ATOM))->toBe('2026-07-31T23:59:59+00:00')
+        ->and($usage->operations)->toBe(68)
+        ->and($usage->bytesSaved)->toBe(62111321)
+        ->and($usage->averageReduction)->toBe(45)
+        ->and($usage->byOperation)->toBe(['convert' => 40, 'optimize' => 28]);
 
     $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.com/api/v1/usage'
         && $request->method() === 'GET'
@@ -123,11 +184,21 @@ test('usage fetches the summary with the configured token', function () {
 });
 
 test('user verifies an explicit token without touching the configured one', function () {
-    $http = fakeHttp(['*/user' => Factory::response(['name' => 'Mathias', 'email' => 'mathias@example.com'])]);
+    $http = fakeHttp(['*/user' => Factory::response([
+        'id' => 7,
+        'name' => 'Mathias',
+        'email' => 'mathias@example.com',
+        'created_at' => '2025-11-03T09:30:00.000000Z',
+    ])]);
 
     $user = client($http)->user('candidate-token');
 
-    expect($user['name'])->toBe('Mathias');
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->id)->toBe(7)
+        ->and($user->name)->toBe('Mathias')
+        ->and($user->email)->toBe('mathias@example.com')
+        ->and($user->createdAt)->toBeInstanceOf(DateTimeImmutable::class)
+        ->and($user->createdAt->format('Y-m-d H:i:s'))->toBe('2025-11-03 09:30:00');
 
     $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.com/api/user'
         && $request->hasHeader('Authorization', 'Bearer candidate-token'));
@@ -172,8 +243,16 @@ test('analyze posts metadata only, with no image payload', function () {
     $estimates = client($http)->analyze(ImageFormat::Jpg, 2_500_000, 4032, 3024, 80);
 
     expect($estimates)->toHaveCount(4)
-        ->and($estimates[0]['format'])->toBe('jpg')
-        ->and($estimates[3]['format'])->toBe('avif');
+        ->and($estimates[0])->toBeInstanceOf(SizeEstimate::class)
+        ->and($estimates[0]->format)->toBe('jpg')
+        ->and($estimates[0]->size)->toBe(812000)
+        ->and($estimates[0]->saved)->toBe(1688000)
+        ->and($estimates[0]->savedPercent)->toBe(67.5)
+        ->and($estimates[0]->quality)->toBe(85)
+        ->and($estimates[1]->saved)->toBe(-3600000)
+        ->and($estimates[1]->savedPercent)->toBe(-144.0)
+        ->and($estimates[1]->quality)->toBeNull()
+        ->and($estimates[3]->format)->toBe('avif');
 
     $http->assertSent(function (Request $request) {
         return $request->url() === 'https://glimpseimg.com/api/v1/analyze'
