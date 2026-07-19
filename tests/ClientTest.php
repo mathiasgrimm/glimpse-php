@@ -183,6 +183,31 @@ test('usage fetches the summary with the configured token', function () {
         && $request->hasHeader('Authorization', 'Bearer test-token'));
 });
 
+test('usage rejects a response without period dates', function () {
+    $http = fakeHttp(['*/v1/usage' => Factory::response(['data' => [
+        'operations' => 68,
+        'bytes_saved' => 62111321,
+        'average_reduction' => 45,
+        'by_operation' => ['convert' => 40, 'optimize' => 28],
+    ]])]);
+
+    expect(fn () => client($http)->usage())
+        ->toThrow(ApiException::class, "The API response is missing the 'from' date.");
+});
+
+test('usage rejects a response with a malformed period date', function () {
+    $http = fakeHttp(['*/v1/usage' => Factory::response(['data' => [
+        'period' => ['from' => '2026-07-01T00:00:00+00:00', 'to' => 'not-a-date'],
+        'operations' => 68,
+        'bytes_saved' => 62111321,
+        'average_reduction' => 45,
+        'by_operation' => [],
+    ]])]);
+
+    expect(fn () => client($http)->usage())
+        ->toThrow(ApiException::class, "The API response carries an invalid 'to' date.");
+});
+
 test('user verifies an explicit token without touching the configured one', function () {
     $http = fakeHttp(['*/user' => Factory::response([
         'id' => 7,
@@ -202,6 +227,29 @@ test('user verifies an explicit token without touching the configured one', func
 
     $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.com/api/user'
         && $request->hasHeader('Authorization', 'Bearer candidate-token'));
+});
+
+test('user rejects a response without a created_at date', function () {
+    $http = fakeHttp(['*/user' => Factory::response([
+        'id' => 7,
+        'name' => 'Mathias',
+        'email' => 'mathias@example.com',
+    ])]);
+
+    expect(fn () => client($http)->user('candidate-token'))
+        ->toThrow(ApiException::class, "The API response is missing the 'created_at' date.");
+});
+
+test('user rejects a response with a malformed created_at date', function () {
+    $http = fakeHttp(['*/user' => Factory::response([
+        'id' => 7,
+        'name' => 'Mathias',
+        'email' => 'mathias@example.com',
+        'created_at' => 'not-a-date',
+    ])]);
+
+    expect(fn () => client($http)->user('candidate-token'))
+        ->toThrow(ApiException::class, "The API response carries an invalid 'created_at' date.");
 });
 
 test('a missing token fails before any HTTP request', function () {

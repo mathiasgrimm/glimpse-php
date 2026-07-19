@@ -3,6 +3,7 @@
 namespace GlimpseImg;
 
 use DateTimeImmutable;
+use Exception;
 
 final readonly class UsagePeriod
 {
@@ -17,8 +18,26 @@ final readonly class UsagePeriod
     public static function fromResponse(array $data): self
     {
         return new self(
-            from: new DateTimeImmutable((string) data_get($data, 'from')),
-            to: new DateTimeImmutable((string) data_get($data, 'to')),
+            from: self::date($data, 'from'),
+            to: self::date($data, 'to'),
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function date(array $data, string $key): DateTimeImmutable
+    {
+        $value = data_get($data, $key);
+
+        if (! is_string($value) || $value === '') {
+            throw new ApiException("The API response is missing the '{$key}' date.");
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Exception) {
+            throw new ApiException("The API response carries an invalid '{$key}' date.");
+        }
     }
 }
