@@ -1,6 +1,6 @@
 {
     "name": "mathiasgrimm/glimpse-php",
-    "description": "PHP SDK for glimpseimg.com: convert, optimize, resize, thumbnail, inspect, and analyze images.",
+    "description": "PHP SDK for glimpseimg.com: convert, optimize, resize, thumbnail and analyze images.",
     "keywords": ["glimpse", "image", "sdk", "api", "convert", "optimize", "resize", "thumbnail", "jpg", "jpeg", "gif", "png", "webp", "avif"],
     "type": "library",
     "license": "MIT",
