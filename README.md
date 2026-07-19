@@ -35,7 +35,7 @@ $avif = $glimpse->convert(file_get_contents('photo.jpg'), ImageFormat::Avif);
 file_put_contents('photo.avif', $avif->bytes);
 ```
 
-That is the whole integration: no extensions to compile, no binaries to pin, no queue of shell-outs to babysit. Every method returns a typed, immutable object.
+That is the whole integration: no extensions to compile, no binaries to pin, no queue of shell-outs to babysit. Every method returns typed, immutable results.
 
 ## Documentation
 
