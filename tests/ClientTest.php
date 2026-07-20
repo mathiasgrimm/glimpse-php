@@ -387,7 +387,7 @@ test('a 429 response maps to RateLimitException carrying Retry-After', function 
         client($http)->analyze(ImageFormat::Jpg, 2_500_000);
         $this->fail('Expected a RateLimitException.');
     } catch (RateLimitException $e) {
-        expect($e->getMessage())->toBe('The API rate limit was reached.')
+        expect($e->getMessage())->toBe('Too Many Requests')
             ->and($e->retryAfterSeconds)->toBe(17);
     }
 });
@@ -401,6 +401,50 @@ test('a 429 response without a Retry-After header yields a null delay', function
     } catch (RateLimitException $e) {
         expect($e->retryAfterSeconds)->toBeNull();
     }
+});
+
+test('a 429 response prefers the API message over the fallback', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(['message' => 'Shared token limit reached.'], 429)]);
+
+    expect(fn () => client($http)->analyze(ImageFormat::Jpg, 2_500_000))
+        ->toThrow(RateLimitException::class, 'Shared token limit reached.');
+});
+
+test('Retry-After parsing clamps and rounds odd delay values', function (string $header, ?int $expected) {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response([], 429, ['Retry-After' => $header])]);
+
+    try {
+        client($http)->analyze(ImageFormat::Jpg, 2_500_000);
+        $this->fail('Expected a RateLimitException.');
+    } catch (RateLimitException $e) {
+        expect($e->retryAfterSeconds)->toBe($expected);
+    }
+})->with([
+    'negative clamps to zero' => ['-5', 0],
+    'fractional rounds up' => ['2.5', 3],
+    'garbage yields null' => ['soon', null],
+]);
+
+test('an HTTP-date Retry-After resolves to the remaining seconds', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response([], 429, [
+        'Retry-After' => gmdate('D, d M Y H:i:s \G\M\T', time() + 30),
+    ])]);
+
+    try {
+        client($http)->analyze(ImageFormat::Jpg, 2_500_000);
+        $this->fail('Expected a RateLimitException.');
+    } catch (RateLimitException $e) {
+        expect($e->retryAfterSeconds)->toBeGreaterThanOrEqual(28)
+            ->and($e->retryAfterSeconds)->toBeLessThanOrEqual(30);
+    }
+});
+
+test('the new exceptions stay catchable as ApiException', function () {
+    $limited = fakeHttp(['*/v1/analyze' => Factory::response([], 429)]);
+    $forbidden = fakeHttp(['*/v1/convert' => Factory::response([], 403)]);
+
+    expect(fn () => client($limited)->analyze(ImageFormat::Jpg, 2_500_000))->toThrow(ApiException::class)
+        ->and(fn () => client($forbidden)->convert(Images::png(), ImageFormat::Jpg))->toThrow(ApiException::class);
 });
 
 test('other failures map to ApiException with the status code', function () {

@@ -157,11 +157,11 @@ final class Client
         }
 
         if ($response->status() === 429) {
-            $retryAfter = $response->header('Retry-After');
+            $message = $response->json('message');
 
             throw new RateLimitException(
-                'The API rate limit was reached.',
-                is_numeric($retryAfter) ? (int) $retryAfter : null,
+                is_string($message) && $message !== '' ? $message : 'The API rate limit was reached.',
+                $this->retryAfterSeconds($response),
             );
         }
 
@@ -176,6 +176,29 @@ final class Client
         }
 
         return $response;
+    }
+
+    /**
+     * Parse the Retry-After header, which RFC 9110 allows as either
+     * delay-seconds or an HTTP date. Negative and fractional delays are
+     * clamped so a caller can sleep the value as-is; an absent or
+     * unparseable header yields null.
+     */
+    private function retryAfterSeconds(Response $response): ?int
+    {
+        $header = $response->header('Retry-After');
+
+        if ($header === '') {
+            return null;
+        }
+
+        if (is_numeric($header)) {
+            return max(0, (int) ceil((float) $header));
+        }
+
+        $timestamp = strtotime($header);
+
+        return $timestamp === false ? null : max(0, $timestamp - time());
     }
 
     private function requireToken(): string
