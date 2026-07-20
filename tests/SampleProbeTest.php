@@ -1,7 +1,7 @@
 <?php
 
-use GlimpseImg\SampleProbe;
-use GlimpseImg\Tests\Fixtures\Images;
+use MathiasGrimm\GlimpsePhp\SampleProbe;
+use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
 
 /**
  * Generate a jpeg whose content complexity is controlled: noisy pixels

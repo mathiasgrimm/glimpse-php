@@ -1,6 +1,6 @@
 <?php
 
-namespace GlimpseImg;
+namespace MathiasGrimm\GlimpsePhp;
 
 use Closure;
 use Illuminate\Http\Client\Factory;

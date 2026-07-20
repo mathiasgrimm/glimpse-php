@@ -1,7 +1,7 @@
 <?php
 
-use GlimpseImg\ImageFormat;
-use GlimpseImg\Tests\Fixtures\Images;
+use MathiasGrimm\GlimpsePhp\ImageFormat;
+use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
 
 test('tryFromBinary detects each supported format by its magic numbers', function () {
     expect(ImageFormat::tryFromBinary(Images::jpg()))->toBe(ImageFormat::Jpg)

@@ -1,7 +1,7 @@
 <?php
 
-use GlimpseImg\FrameCounter;
-use GlimpseImg\Tests\Fixtures\Images;
+use MathiasGrimm\GlimpsePhp\FrameCounter;
+use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
 
 test('counts the frames of an animated gif without any image extension', function () {
     expect((new FrameCounter)->count(Images::animatedGif()))->toBe(3);

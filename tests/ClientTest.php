@@ -1,19 +1,19 @@
 <?php
 
-use GlimpseImg\ApiException;
-use GlimpseImg\AuthException;
-use GlimpseImg\Client;
-use GlimpseImg\ForbiddenException;
-use GlimpseImg\ImageFormat;
-use GlimpseImg\ImageInfo;
-use GlimpseImg\RateLimitException;
-use GlimpseImg\SizeEstimate;
-use GlimpseImg\Tests\Fixtures\Images;
-use GlimpseImg\UsageSummary;
-use GlimpseImg\User;
-use GlimpseImg\ValidationException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
+use MathiasGrimm\GlimpsePhp\ApiException;
+use MathiasGrimm\GlimpsePhp\AuthException;
+use MathiasGrimm\GlimpsePhp\Client;
+use MathiasGrimm\GlimpsePhp\ForbiddenException;
+use MathiasGrimm\GlimpsePhp\ImageFormat;
+use MathiasGrimm\GlimpsePhp\ImageInfo;
+use MathiasGrimm\GlimpsePhp\RateLimitException;
+use MathiasGrimm\GlimpsePhp\SizeEstimate;
+use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
+use MathiasGrimm\GlimpsePhp\UsageSummary;
+use MathiasGrimm\GlimpsePhp\User;
+use MathiasGrimm\GlimpsePhp\ValidationException;
 
 function fakeHttp(array $responses = []): Factory
 {

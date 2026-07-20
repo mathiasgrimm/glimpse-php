@@ -1,6 +1,6 @@
 <?php
 
-use GlimpseImg\Tests\Fixtures\Images;
+use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
 
 /**
  * A canned successful analyze-endpoint response envelope.
