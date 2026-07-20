@@ -1,6 +1,6 @@
 <?php
 
-namespace GlimpseImg;
+namespace MathiasGrimm\GlimpsePhp;
 
 use DateTimeImmutable;
 use Exception;

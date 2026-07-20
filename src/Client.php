@@ -1,6 +1,6 @@
 <?php
 
-namespace GlimpseImg;
+namespace MathiasGrimm\GlimpsePhp;
 
 use Closure;
 use Illuminate\Http\Client\Factory;
@@ -138,6 +138,14 @@ final class Client
             throw new AuthException('Invalid or missing token.');
         }
 
+        if ($response->status() === 403) {
+            $message = $response->json('message');
+
+            throw new ForbiddenException(
+                is_string($message) && $message !== '' ? $message : 'This token may not call this endpoint.',
+            );
+        }
+
         if ($response->status() === 422) {
             $message = $response->json('message');
             $errors = $response->json('errors');
@@ -145,6 +153,15 @@ final class Client
             throw new ValidationException(
                 is_string($message) && $message !== '' ? $message : 'The request was invalid.',
                 is_array($errors) ? $errors : [],
+            );
+        }
+
+        if ($response->status() === 429) {
+            $message = $response->json('message');
+
+            throw new RateLimitException(
+                is_string($message) && $message !== '' ? $message : 'The API rate limit was reached.',
+                $this->retryAfterSeconds($response),
             );
         }
 
@@ -159,6 +176,29 @@ final class Client
         }
 
         return $response;
+    }
+
+    /**
+     * Parse the Retry-After header, which RFC 9110 allows as either
+     * delay-seconds or an HTTP date. Negative and fractional delays are
+     * clamped so a caller can sleep the value as-is; an absent or
+     * unparseable header yields null.
+     */
+    private function retryAfterSeconds(Response $response): ?int
+    {
+        $header = $response->header('Retry-After');
+
+        if ($header === '') {
+            return null;
+        }
+
+        if (is_numeric($header)) {
+            return max(0, (int) ceil((float) $header));
+        }
+
+        $timestamp = strtotime($header);
+
+        return $timestamp === false ? null : max(0, $timestamp - time());
     }
 
     private function requireToken(): string

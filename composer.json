@@ -30,12 +30,12 @@
     },
     "autoload": {
         "psr-4": {
-            "GlimpseImg\\": "src/"
+            "MathiasGrimm\\GlimpsePhp\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "GlimpseImg\\Tests\\": "tests/"
+            "MathiasGrimm\\GlimpsePhp\\Tests\\": "tests/"
         }
     },
     "scripts": {

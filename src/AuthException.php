@@ -1,5 +1,5 @@
 <?php
 
-namespace GlimpseImg;
+namespace MathiasGrimm\GlimpsePhp;
 
 class AuthException extends ApiException {}

@@ -25,8 +25,8 @@ composer require mathiasgrimm/glimpse-php
 ```
 
 ```php
-use GlimpseImg\Client;
-use GlimpseImg\ImageFormat;
+use MathiasGrimm\GlimpsePhp\Client;
+use MathiasGrimm\GlimpsePhp\ImageFormat;
 use Illuminate\Http\Client\Factory;
 
 $glimpse = new Client(new Factory, 'your-api-token');
