@@ -138,6 +138,14 @@ final class Client
             throw new AuthException('Invalid or missing token.');
         }
 
+        if ($response->status() === 403) {
+            $message = $response->json('message');
+
+            throw new ForbiddenException(
+                is_string($message) && $message !== '' ? $message : 'This token may not call this endpoint.',
+            );
+        }
+
         if ($response->status() === 422) {
             $message = $response->json('message');
             $errors = $response->json('errors');
@@ -145,6 +153,15 @@ final class Client
             throw new ValidationException(
                 is_string($message) && $message !== '' ? $message : 'The request was invalid.',
                 is_array($errors) ? $errors : [],
+            );
+        }
+
+        if ($response->status() === 429) {
+            $retryAfter = $response->header('Retry-After');
+
+            throw new RateLimitException(
+                'The API rate limit was reached.',
+                is_numeric($retryAfter) ? (int) $retryAfter : null,
             );
         }
 

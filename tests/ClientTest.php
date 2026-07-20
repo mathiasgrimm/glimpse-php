@@ -3,8 +3,10 @@
 use GlimpseImg\ApiException;
 use GlimpseImg\AuthException;
 use GlimpseImg\Client;
+use GlimpseImg\ForbiddenException;
 use GlimpseImg\ImageFormat;
 use GlimpseImg\ImageInfo;
+use GlimpseImg\RateLimitException;
 use GlimpseImg\SizeEstimate;
 use GlimpseImg\Tests\Fixtures\Images;
 use GlimpseImg\UsageSummary;
@@ -361,6 +363,43 @@ test('a 422 response maps to ValidationException carrying the errors map', funct
     } catch (ValidationException $e) {
         expect($e->getMessage())->toBe('The format field is invalid.')
             ->and($e->errors)->toBe(['format' => ['The format field is invalid.']]);
+    }
+});
+
+test('a 403 response maps to ForbiddenException with the API message', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response(['message' => 'Invalid ability provided.'], 403)]);
+
+    expect(fn () => client($http)->convert(Images::png(), ImageFormat::Jpg))
+        ->toThrow(ForbiddenException::class, 'Invalid ability provided.');
+});
+
+test('a 403 response without a message gets the fallback text', function () {
+    $http = fakeHttp(['*/v1/convert' => Factory::response([], 403)]);
+
+    expect(fn () => client($http)->convert(Images::png(), ImageFormat::Jpg))
+        ->toThrow(ForbiddenException::class, 'This token may not call this endpoint.');
+});
+
+test('a 429 response maps to RateLimitException carrying Retry-After', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(['message' => 'Too Many Requests'], 429, ['Retry-After' => '17'])]);
+
+    try {
+        client($http)->analyze(ImageFormat::Jpg, 2_500_000);
+        $this->fail('Expected a RateLimitException.');
+    } catch (RateLimitException $e) {
+        expect($e->getMessage())->toBe('The API rate limit was reached.')
+            ->and($e->retryAfterSeconds)->toBe(17);
+    }
+});
+
+test('a 429 response without a Retry-After header yields a null delay', function () {
+    $http = fakeHttp(['*/v1/analyze' => Factory::response(['message' => 'Too Many Requests'], 429)]);
+
+    try {
+        client($http)->analyze(ImageFormat::Jpg, 2_500_000);
+        $this->fail('Expected a RateLimitException.');
+    } catch (RateLimitException $e) {
+        expect($e->retryAfterSeconds)->toBeNull();
     }
 });
 
