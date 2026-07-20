@@ -1,6 +1,6 @@
 <?php
 
-namespace GlimpseImg\Tests\Fixtures;
+namespace MathiasGrimm\GlimpsePhp\Tests\Fixtures;
 
 final class Images
 {

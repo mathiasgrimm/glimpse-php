@@ -1,5 +1,5 @@
 <?php
 
-namespace GlimpseImg;
+namespace MathiasGrimm\GlimpsePhp;
 
 class ForbiddenException extends ApiException {}
