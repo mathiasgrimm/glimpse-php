@@ -8,6 +8,7 @@ use MathiasGrimm\GlimpsePhp\Client;
 use MathiasGrimm\GlimpsePhp\ForbiddenException;
 use MathiasGrimm\GlimpsePhp\ImageFormat;
 use MathiasGrimm\GlimpsePhp\ImageInfo;
+use MathiasGrimm\GlimpsePhp\ImageResult;
 use MathiasGrimm\GlimpsePhp\RateLimitException;
 use MathiasGrimm\GlimpsePhp\SizeEstimate;
 use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
@@ -67,6 +68,14 @@ test('an integer psnr in the response is cast to float', function () {
     $http = fakeHttp(['*/v1/optimize' => Factory::response(fakeTransformResponse(overrides: ['psnr' => 42]))]);
 
     expect(client($http)->optimize(Images::png())->psnr)->toBe(42.0);
+});
+
+test('the six-argument constructor stays valid and defaults psnr to null', function () {
+    // Locks backward compatibility: callers built against pre-3.1 must keep
+    // working without passing psnr.
+    $result = new ImageResult('bytes', 'jpg', 'image/jpeg', 100, 20, 10);
+
+    expect($result->psnr)->toBeNull();
 });
 
 test('convert sends optimize and quality when given', function () {
