@@ -8,6 +8,7 @@ use MathiasGrimm\GlimpsePhp\Client;
 use MathiasGrimm\GlimpsePhp\ForbiddenException;
 use MathiasGrimm\GlimpsePhp\ImageFormat;
 use MathiasGrimm\GlimpsePhp\ImageInfo;
+use MathiasGrimm\GlimpsePhp\ImageResult;
 use MathiasGrimm\GlimpsePhp\RateLimitException;
 use MathiasGrimm\GlimpsePhp\SizeEstimate;
 use MathiasGrimm\GlimpsePhp\Tests\Fixtures\Images;
@@ -30,7 +31,7 @@ function client(Factory $http, Closure|string|null $token = 'test-token', string
 }
 
 test('convert posts the base64 envelope and returns a decoded ImageResult', function () {
-    $http = fakeHttp(['*/v1/convert' => Factory::response(fakeTransformResponse())]);
+    $http = fakeHttp(['*/v1/convert' => Factory::response(fakeTransformResponse(overrides: ['psnr' => 41.27]))]);
 
     $result = client($http)->convert(Images::png(), ImageFormat::Jpg);
 
@@ -38,7 +39,8 @@ test('convert posts the base64 envelope and returns a decoded ImageResult', func
         ->and($result->format)->toBe(ImageFormat::Jpg->value)
         ->and($result->mimeType)->toBe('image/jpeg')
         ->and($result->width)->toBe(1280)
-        ->and($result->height)->toBe(720);
+        ->and($result->height)->toBe(720)
+        ->and($result->psnr)->toBe(41.27);
 
     $http->assertSent(function (Request $request) {
         return $request->url() === 'https://glimpseimg.com/api/v1/convert'
@@ -47,6 +49,33 @@ test('convert posts the base64 envelope and returns a decoded ImageResult', func
             && $request['input']['data'] === Images::PNG_BASE64
             && $request['format'] === ImageFormat::Jpg->value;
     });
+});
+
+test('a null psnr in the response stays null', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(fakeTransformResponse(overrides: ['psnr' => null]))]);
+
+    expect(client($http)->optimize(Images::png())->psnr)->toBeNull();
+});
+
+test('a response without a psnr field maps to a null psnr', function () {
+    // Resize and thumbnail responses do not carry the field at all.
+    $http = fakeHttp(['*/v1/resize' => Factory::response(fakeTransformResponse())]);
+
+    expect(client($http)->resize(Images::png(), width: 800)->psnr)->toBeNull();
+});
+
+test('an integer psnr in the response is cast to float', function () {
+    $http = fakeHttp(['*/v1/optimize' => Factory::response(fakeTransformResponse(overrides: ['psnr' => 42]))]);
+
+    expect(client($http)->optimize(Images::png())->psnr)->toBe(42.0);
+});
+
+test('the six-argument constructor stays valid and defaults psnr to null', function () {
+    // Locks backward compatibility: callers built against pre-3.1 must keep
+    // working without passing psnr.
+    $result = new ImageResult('bytes', 'jpg', 'image/jpeg', 100, 20, 10);
+
+    expect($result->psnr)->toBeNull();
 });
 
 test('convert sends optimize and quality when given', function () {

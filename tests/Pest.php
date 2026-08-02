@@ -68,11 +68,12 @@ function fakeInfoResponse(array $overrides = []): array
 /**
  * A canned successful transform-endpoint response envelope.
  *
+ * @param  array<string, mixed>  $overrides
  * @return array{data: array<string, mixed>}
  */
-function fakeTransformResponse(string $format = 'jpg', string $mimeType = 'image/jpeg'): array
+function fakeTransformResponse(string $format = 'jpg', string $mimeType = 'image/jpeg', array $overrides = []): array
 {
-    return ['data' => [
+    return ['data' => $overrides + [
         'output' => ['type' => 'BASE64', 'data' => Images::JPG_BASE64],
         'format' => $format,
         'mime_type' => $mimeType,
