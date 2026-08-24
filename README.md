@@ -37,6 +37,8 @@ file_put_contents('photo.avif', $avif->bytes);
 
 That is the whole integration: no extensions to compile, no binaries to pin, no queue of shell-outs to babysit. Every method returns typed, immutable results.
 
+Phone photos work as the source too: pass a HEIC file to `convert()` and get any web format back. HEIC is the one format the API reads but never writes, so it is not a convert target and `optimize()`, `resize()` and `thumbnail()` (which keep the format) reject it; `ImageFormat::Heic->isDecodeOnly()` tells you before you send it. New formats may arrive in minor releases, so keep a `default` arm when you `match` on `ImageFormat`.
+
 ## Documentation
 
 The full documentation lives at **[glimpseimg.com/docs/sdk](https://glimpseimg.com/docs/sdk)**:
