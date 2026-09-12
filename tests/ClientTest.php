@@ -522,3 +522,41 @@ test('the default user agent includes the installed SDK version', function () {
     expect($version)->toBeString()->not->toBeEmpty();
     $http->assertSent(fn (Request $request) => $request->hasHeader('User-Agent', 'glimpse-php/'.$version));
 });
+
+test('explicitly supplied public tokens work with every image method', function (string $operation) {
+    $response = match ($operation) {
+        'info' => fakeInfoResponse(),
+        'analyze' => fakeAnalyzeResponse(),
+        default => fakeTransformResponse(),
+    };
+    $http = fakeHttp(['*/v1/'.$operation => Factory::response($response)]);
+    $client = client($http, 'supplied-public-token');
+    $result = match ($operation) {
+        'convert' => $client->convert(Images::png(), ImageFormat::Jpg),
+        'resize' => $client->resize(Images::png(), width: 6),
+        'analyze' => $client->analyze(ImageFormat::Png, 1000),
+        default => $client->{$operation}(Images::png()),
+    };
+    expect($result)->not->toBeNull();
+    $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer supplied-public-token'));
+    $http->assertSentCount(1);
+})->with(['convert', 'optimize', 'resize', 'thumbnail', 'info', 'analyze']);
+
+test('transform rate limiting preserves the exception contract without automatic retries', function (string $operation, ?string $retryAfter) {
+    $http = fakeHttp(['*/v1/'.$operation => Factory::response(['message' => 'Please try later.'], 429, $retryAfter === null ? [] : ['Retry-After' => $retryAfter])]);
+    $client = client($http, 'supplied-public-token');
+
+    try {
+        match ($operation) {
+            'convert' => $client->convert(Images::png(), ImageFormat::Jpg),
+            'resize' => $client->resize(Images::png(), width: 6),
+            default => $client->{$operation}(Images::png()),
+        };
+        test()->fail('Expected a rate limit exception.');
+    } catch (RateLimitException $exception) {
+        expect($exception->getMessage())->toBe('Please try later.')
+            ->and($exception->retryAfterSeconds)->toBe($retryAfter === null ? null : (int) $retryAfter);
+    }
+
+    $http->assertSentCount(1);
+})->with(['convert', 'optimize', 'resize', 'thumbnail', 'info'])->with([null, '5', '61']);
