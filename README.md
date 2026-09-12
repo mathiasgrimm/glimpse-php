@@ -25,14 +25,12 @@ composer require mathiasgrimm/glimpse-php
 ```
 
 ```php
-use MathiasGrimm\GlimpsePhp\Client;
-use MathiasGrimm\GlimpsePhp\ImageFormat;
-use Illuminate\Http\Client\Factory;
+use MathiasGrimm\GlimpsePhp\Glimpse;
 
-$glimpse = new Client(new Factory, 'your-api-token');
+$glimpse = Glimpse::createClient('your-api-token');
 
-$avif = $glimpse->convert(file_get_contents('photo.jpg'), ImageFormat::Avif);
-file_put_contents('photo.avif', $avif->bytes);
+$result = $glimpse->optimize(file_get_contents('photo.jpg'));
+file_put_contents('photo-optimized.jpg', $result->bytes);
 ```
 
 That is the whole integration: no extensions to compile, no binaries to pin, no queue of shell-outs to babysit. Every method returns typed, immutable results.
