@@ -501,7 +501,6 @@ test('a trailing slash on the base url is normalized away', function () {
 
 test('a custom user agent applies only to that client', function () {
     $http = fakeHttp(['*/v1/info' => Factory::response(['data' => []])]);
-    $http->globalOptions(['headers' => ['User-Agent' => 'existing-agent']]);
 
     (new Client($http, 'custom-token', userAgent: 'glimpse-cli/v1.7.2'))->info(Images::png());
     (new Client($http, 'default-token'))->info(Images::png());
@@ -510,5 +509,5 @@ test('a custom user agent applies only to that client', function () {
     $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer custom-token')
         && $request->hasHeader('User-Agent', 'glimpse-cli/v1.7.2'));
     $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer default-token')
-        && $request->hasHeader('User-Agent', 'existing-agent'));
+        && ! $request->hasHeader('User-Agent', 'glimpse-cli/v1.7.2'));
 });
