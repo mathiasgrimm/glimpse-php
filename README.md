@@ -27,7 +27,7 @@ composer require mathiasgrimm/glimpse-php
 ```php
 use MathiasGrimm\GlimpsePhp\Glimpse;
 
-$glimpse = Glimpse::createClient('your-api-token');
+$glimpse = Glimpse::createClient('YOUR_TOKEN');
 
 $result = $glimpse->optimize(file_get_contents('photo.jpg'));
 file_put_contents('photo-optimized.jpg', $result->bytes);
