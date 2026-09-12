@@ -3,6 +3,7 @@
 namespace MathiasGrimm\GlimpsePhp;
 
 use Closure;
+use Composer\InstalledVersions;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -20,6 +21,7 @@ final class Client
         private readonly Factory $http,
         private readonly Closure|string|null $token = null,
         private readonly string $baseUrl = self::DEFAULT_BASE_URL,
+        private readonly ?string $userAgent = null,
     ) {}
 
     public function convert(string $bytes, ImageFormat $format, bool $optimize = false, ?int $quality = null): ImageResult
@@ -125,11 +127,13 @@ final class Client
 
     private function request(string $token): PendingRequest
     {
-        return $this->http->baseUrl(rtrim($this->baseUrl, '/'))
+        $request = $this->http->baseUrl(rtrim($this->baseUrl, '/'))
             ->withToken($token)
             ->acceptJson()
             ->connectTimeout(10)
             ->timeout(120);
+
+        return $request->withUserAgent($this->userAgent ?? 'glimpse-php/'.(InstalledVersions::getPrettyVersion('mathiasgrimm/glimpse-php') ?? 'unknown'));
     }
 
     private function guard(Response $response): Response
