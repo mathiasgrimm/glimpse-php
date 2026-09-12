@@ -3,6 +3,7 @@
 namespace MathiasGrimm\GlimpsePhp;
 
 use Closure;
+use Composer\InstalledVersions;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -132,11 +133,7 @@ final class Client
             ->connectTimeout(10)
             ->timeout(120);
 
-        if ($this->userAgent !== null) {
-            $request->withUserAgent($this->userAgent);
-        }
-
-        return $request;
+        return $request->withUserAgent($this->userAgent ?? 'glimpse-php/'.(InstalledVersions::getPrettyVersion('mathiasgrimm/glimpse-php') ?? 'unknown'));
     }
 
     private function guard(Response $response): Response
