@@ -1,5 +1,6 @@
 <?php
 
+use Composer\InstalledVersions;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use MathiasGrimm\GlimpsePhp\ApiException;
@@ -497,4 +498,27 @@ test('a trailing slash on the base url is normalized away', function () {
     client($http, baseUrl: 'https://glimpseimg.test/api/')->info(Images::png());
 
     $http->assertSent(fn (Request $request) => $request->url() === 'https://glimpseimg.test/api/v1/info');
+});
+
+test('a custom user agent applies only to that client', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => []])]);
+
+    (new Client($http, 'custom-token', userAgent: 'glimpse-cli/v1.7.2'))->info(Images::png());
+    (new Client($http, 'default-token'))->info(Images::png());
+
+    $http->assertSentCount(2);
+    $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer custom-token')
+        && $request->hasHeader('User-Agent', 'glimpse-cli/v1.7.2'));
+    $http->assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer default-token')
+        && ! $request->hasHeader('User-Agent', 'glimpse-cli/v1.7.2'));
+});
+
+test('the default user agent includes the installed SDK version', function () {
+    $http = fakeHttp(['*/v1/info' => Factory::response(['data' => []])]);
+    $version = InstalledVersions::getPrettyVersion('mathiasgrimm/glimpse-php');
+
+    client($http)->info(Images::png());
+
+    expect($version)->toBeString()->not->toBeEmpty();
+    $http->assertSent(fn (Request $request) => $request->hasHeader('User-Agent', 'glimpse-php/'.$version));
 });
